@@ -1,0 +1,103 @@
+# Builds linux/docker/Dockerfile and pushes it to ghcr.io/<owner>/enclosure-pod.
+# Copy to .github/workflows/pod-image.yml of a PRIVATE repository that contains only the minimal
+# build context (linux/docker/export-build-context.ps1 writes it, this file included).
+# Credentials: only the repository's own GITHUB_TOKEN (permissions: packages: write). No other
+# secrets are used or needed. Nothing here runs on a GPU or touches RunPod.
+# Tags pushed: <YYYYMMDD>-<commit7>, latest, and the optional manual input "tag".
+name: pod-image
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Extra image tag (letters, digits, . _ -), optional"
+        required: false
+        default: ""
+  push:
+    branches: [main]
+    paths:
+      - "linux/docker/**"
+      - "linux/requirements.txt"
+      - "**/Cargo.toml"
+      - "**/Cargo.lock"
+      - ".github/workflows/pod-image.yml"
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: pod-image
+  cancel-in-progress: false
+
+jobs:
+  build-push:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # The image is ~25-30 GB unpacked (RunPod PyTorch base + a torch 2.10 venv); a stock runner
+      # has too little free space on /. Remove preinstalled SDKs we never use, then put Docker's
+      # storage on the larger of / and /mnt.
+      - name: Free disk space
+        run: |
+          set -euo pipefail
+          df -h / /mnt || true
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL /usr/local/share/boost /usr/share/swift /usr/local/share/powershell
+          docker system prune -af >/dev/null || true
+          root_free="$(df --output=avail -k / | tail -n 1)"
+          mnt_free="$(df --output=avail -k /mnt 2>/dev/null | tail -n 1 || echo 0)"
+          if [ "${mnt_free:-0}" -gt "$root_free" ]; then
+            echo "moving Docker storage to /mnt"
+            sudo systemctl stop docker.socket docker
+            sudo systemctl stop containerd || true
+            for d in docker containerd; do
+              sudo mkdir -p "/mnt/$d"
+              sudo rm -rf "/var/lib/$d"
+              sudo mkdir -p "/var/lib/$d"
+              sudo mount --bind "/mnt/$d" "/var/lib/$d"
+            done
+            sudo systemctl start containerd || true
+            sudo systemctl start docker
+          fi
+          docker info --format 'docker {{.ServerVersion}}, root dir {{.DockerRootDir}}, driver {{.Driver}}'
+          df -h / /mnt || true
+
+      - name: Build
+        env:
+          INPUT_TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          owner="${GITHUB_REPOSITORY_OWNER,,}"
+          image="ghcr.io/$owner/enclosure-pod"
+          daytag="$(date -u +%Y%m%d)-${GITHUB_SHA::7}"
+          tags=(-t "$image:$daytag" -t "$image:latest")
+          if [ -n "${INPUT_TAG:-}" ]; then
+            [[ $INPUT_TAG =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]] || { echo "invalid tag: $INPUT_TAG" >&2; exit 1; }
+            tags+=(-t "$image:$INPUT_TAG")
+          fi
+          DOCKER_BUILDKIT=1 docker build --pull --progress=plain -f linux/docker/Dockerfile "${tags[@]}" .
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          echo "DAYTAG=$daytag" >> "$GITHUB_ENV"
+
+      - name: Image info (no GPU needed)
+        run: |
+          set -euo pipefail
+          docker image ls "$IMAGE"
+          docker run --rm --entrypoint cat "$IMAGE:$DAYTAG" /opt/enclosure/IMAGE-INFO.env
+          df -h / /mnt || true
+
+      - name: Push to ghcr.io
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          docker push --all-tags "$IMAGE"
+          docker logout ghcr.io
+          echo "pushed $IMAGE:$DAYTAG (and :latest)"

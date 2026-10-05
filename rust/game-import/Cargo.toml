@@ -1,0 +1,27 @@
+[package]
+name = "game-import"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+description = "Imports recorded (human or other external) Meridian games into meridian-shard-v1 training shards."
+
+[lib]
+name = "game_import"
+path = "src/lib.rs"
+
+[[bin]]
+name = "game-import"
+path = "src/main.rs"
+# main.rs has no unit tests; an empty test harness is one more binary for Application Control.
+test = false
+
+[dependencies]
+# Read-only use of the encoding (meridian-planes-v1) and the shard writer/reader (meridian-shard-v1).
+enclosure-bot = { path = "../enclosure-bot" }
+# The official rules engine: every recorded move is validated with it.
+meridian-engine = { path = "../../work/constellation/meridian-bot-kit/engine" }
+serde_json = "1"
+
+# Standalone crate: keeps it out of any enclosing workspace.
+[workspace]

@@ -1,0 +1,38 @@
+# Python packages for rl2/ (loop.py, train2.py, infer_server.py, stream_shards.py, ...) and the
+# Python half of work/external/convert/ on the Linux GPU pod.
+#
+# Matches this PC's venv (.runtime/rl, Python 3.14.7, `pip freeze` Oct 4 2026):
+# torch 2.10.0+cu128 (CUDA 12.8), numpy 2.4.3. rl2 imports only numpy and torch outside the
+# standard library; psutil is there for process checks in shell helpers.
+#
+# Install into a fresh venv, NOT the template's system Python (its torchvision/torchaudio 2.8 pin
+# torch 2.8 and pip would leave them broken):
+#   python3 -m venv /workspace/venv
+#   /workspace/venv/bin/python -m pip install --upgrade pip
+#   /workspace/venv/bin/python -m pip install -r linux/requirements.txt
+# The torch line alone is equivalent to:
+#   pip install torch==2.10.0+cu128 --index-url https://download.pytorch.org/whl/cu128
+# On Linux the torch wheel pulls its CUDA 12.8 runtime (nvidia-*-cu12 wheels) and triton itself,
+# pinned by torch's own metadata; the driver must support CUDA 12.8 (R570 or newer).
+#
+# Python 3.11 or newer recommended (numpy 2.4.3 needs >= 3.11); on 3.10 numpy 2.2.6 is used.
+# rl2 sources parse as Python 3.10 (rl2/test_portable.py checks that).
+
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch==2.10.0+cu128
+numpy==2.4.3; python_version >= "3.11"
+numpy==2.2.6; python_version < "3.11"
+psutil==7.2.2
+
+# torch's pure-Python dependencies at this PC's versions (reproducibility; pip would otherwise
+# pick the newest compatible ones)
+filelock==3.32.3
+fsspec==2026.7.0
+Jinja2==3.1.6
+MarkupSafe==3.0.3
+mpmath==1.3.0
+networkx==3.6.1; python_version >= "3.11"
+sympy==1.14.0
+typing_extensions==4.16.0
+setuptools==78.1.0; python_version >= "3.12"

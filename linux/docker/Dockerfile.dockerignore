@@ -1,0 +1,14 @@
+# Build-context WHITELIST for linux/docker/Dockerfile (BuildKit reads <Dockerfile>.dockerignore next
+# to the Dockerfile). Everything is excluded except the files the build reads: no source code,
+# checkpoints, data or secrets (work/meaf, keys, tokens) can reach the builder, even when the
+# context is the whole project root. Add a line here only for a file the Dockerfile really needs.
+*
+!linux/requirements.txt
+!rust/enclosure-bot/Cargo.toml
+!rust/enclosure-bot/Cargo.lock
+!rust/game-import/Cargo.toml
+!rust/game-import/Cargo.lock
+!work/external/convert/extconv/Cargo.toml
+!work/external/convert/extconv/Cargo.lock
+!work/constellation/meridian-bot-kit/engine/Cargo.toml
+!work/constellation/meridian-bot-kit/scout/Cargo.toml

@@ -1,0 +1,15 @@
+[package]
+name = "extconv"
+version = "0.1.0"
+edition = "2024"
+publish = false
+description = "EnclosurePublic GameRecord (bincode 1.3) -> our move IDs, verified by replay with the official meridian-engine."
+
+[dependencies]
+meridian-engine = { path = "../../../constellation/meridian-bot-kit/engine" }
+
+[profile.release]
+debug-assertions = true
+overflow-checks = true
+
+[workspace]

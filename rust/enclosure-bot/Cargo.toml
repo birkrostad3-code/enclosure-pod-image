@@ -1,0 +1,37 @@
+[package]
+name = "enclosure-bot"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.89"  # std::fs::File::lock (mock-server --gpu-lock)
+publish = false
+description = "Enclosure/Meridian bot v0: alpha-beta search over single actions with a swappable evaluator."
+
+[lib]
+name = "enclosure_bot"
+path = "src/lib.rs"
+
+[[bin]]
+name = "enclosure-bot"
+path = "src/main.rs"
+test = false
+
+[dependencies]
+meridian-engine = { path = "../../work/constellation/meridian-bot-kit/engine" }
+scout = { path = "../../work/constellation/meridian-bot-kit/scout" }
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1
+
+# Tests run searches of real size; keep them optimised (debug assertions stay on).
+[profile.test]
+opt-level = 3
+debug = false
+
+[profile.dev.package."*"]
+opt-level = 3
+
+# Standalone crate: keeps it out of any enclosing workspace.
+[workspace]
+
