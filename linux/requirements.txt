@@ -36,3 +36,4 @@ networkx==3.6.1; python_version >= "3.11"
 sympy==1.14.0
 typing_extensions==4.16.0
 setuptools==78.1.0; python_version >= "3.12"
+zstandard==0.25.0; python_version < "3.14"
